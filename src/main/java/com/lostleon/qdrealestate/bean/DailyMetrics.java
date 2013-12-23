@@ -2,6 +2,8 @@ package com.lostleon.qdrealestate.bean;
 
 import java.util.Date;
 
+import com.lostleon.qdrealestate.util.Util;
+
 /**
  * 每天每个Project的数据都记录成一个本类的对象
  * 
@@ -52,10 +54,11 @@ public class DailyMetrics {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(date).append("|").append(totalSoldSize).append("|")
-				.append(totalSoldNum).append("|").append(totalAvgPrice)
-				.append("|").append(totalSoldSize).append("|")
-				.append(totalSoldNum).append("|").append(todayAvgPrice);
+		sb.append(Util.date2str(date)).append("|").append(totalSoldSize)
+				.append("|").append(totalSoldNum).append("|")
+				.append(totalAvgPrice).append("|").append(totalSoldSize)
+				.append("|").append(totalSoldNum).append("|")
+				.append(todayAvgPrice);
 		return sb.toString();
 	}
 }

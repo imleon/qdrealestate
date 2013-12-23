@@ -28,7 +28,8 @@ import com.lostleon.qdrealestate.util.Util;
 
 public class Crawler {
 	
-	private final static Logger logger = LoggerFactory.getLogger(Crawler.class);
+	private final static Logger crawListlogger = LoggerFactory.getLogger("crawList");
+	private final static Logger logger = LoggerFactory.getLogger("logger");
 	
 	private static final String URL_LIST = "http://www.qdfd.com.cn/complexPro.asp?districtID=&projectAdr=&projectName=&buildingType=1&houseArea=0&averagePrice=0&selState=-1&selCircle=0&page=";
 	private static final String URL_PROJ = "http://www.qdfd.com.cn/proDetail.asp?projectID=";
@@ -61,7 +62,7 @@ public class Crawler {
 		int countRecord = 0;
 		
 //		for (int i = 1; i <= listPageNum; i ++) {
-		for (int i = 1; i <= 1; i ++) {
+		for (int i = 1; i <= 2; i ++) {
 			
 			String ret = Connection.doGet(URL_LIST + i);
 			if (StringUtil.isBlank(ret)) {
@@ -73,7 +74,7 @@ public class Crawler {
 			countPage = Integer.valueOf(count.select("option").last().text());
 			countRecord = Integer.valueOf(count.select("font[color=blue]").first().text());
 			listPageNum = countPage;
-			logger.info("crawList|parseCount|countPage=" + countPage + "|countRecord=" + countRecord);
+			crawListlogger.info("parseCount|countPage=" + countPage + "|countRecord=" + countRecord);
 			/* 元素如下：
 			 * 
 			 <table width='100%' ID="Table7" class="px12">
@@ -113,10 +114,10 @@ public class Crawler {
 				int prjId = Integer.valueOf(ParseHelper.getQueryValue(prjHref.substring(prjHrefParamBegin), "projectID"));
 				j += 6;
 				projects.add(new ProjectBean(prjId, st));
-				logger.info("crawList|addProject|id=" + prjId + "|status=" + st);
+				crawListlogger.info("addProject|id=" + prjId + "|status=" + st);
 			}
 		} //end of pages
-		logger.info("crawList|totalProject|expectNum=" + countRecord + "|realNum=" + projects.size());
+		crawListlogger.info("totalProject|expectNum=" + countRecord + "|realNum=" + projects.size());
 	}
 	
 	/**
@@ -131,14 +132,14 @@ public class Crawler {
 			
 			if (storedStatus == null) {
 				// 如果从未存储过，则存储
-				logger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|create");
+				crawListlogger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|create");
 				this.createProject(id, onlineStatus);
 			} else if (onlineStatus.equals(ProjectStatus.PREPARE) || storedStatus.equals(ProjectStatus.SOLDOUT)) {
 				// 否则，如果线上从未开售，或者存储中就已售完，则忽略
-				logger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|ignore");
+				crawListlogger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|ignore");
 			} else {
 				// 否则，说明曾经存储过，且仍然在售，则解析价格，并更新存储
-				logger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|update");
+				crawListlogger.info("diffList|" + id + "|web=" + onlineStatus + "|redis=" + storedStatus + "|update");
 				this.updateProject(id, onlineStatus);
 			}
 		}
@@ -228,17 +229,20 @@ public class Crawler {
 		 */
 		
 		String name = ParseHelper.trim(table2s.get(0).text());
-		District district = District.getDistrict(ParseHelper.trim(table2s.get(1).text()));
+		District district = District.getDistrictByCHN(ParseHelper.trim(table2s.get(1).text()));
 		String addr = ParseHelper.trim(table2s.get(2).text());
 		String company = ParseHelper.trim(table2s.get(3).text());
 		
 		int residentNumTotal = Integer.valueOf(ParseHelper.trimComma(table2s.get(4).text()));
-		int residentNumAvail = Integer.valueOf(ParseHelper.trimComma(table2s.get(6).text()));
+		int residentNumAvail = Integer.valueOf(ParseHelper.trimComma(table2s.get(8).text()));
 		//TODO should be accurate
 		float residentSizeTotal = Float.valueOf(ParseHelper.trimCommaAndReserveFirst(table2s.get(5).text()));
-		float residentSizeAvail = Float.valueOf(ParseHelper.trimCommaAndReserveFirst(table2s.get(7).text()));
+		float residentSizeAvail = Float.valueOf(ParseHelper.trimCommaAndReserveFirst(table2s.get(9).text()));
 		
 		// now get latlng from Baidu API
+		if (StringUtil.isBlank(addr)) {
+			addr = name;	// 如果地址为空，则设置项目名称为地址
+		}
 		String addrEncoded = null;
 		try {
 			addrEncoded = URLEncoder.encode(addr, "UTF-8");
@@ -253,8 +257,10 @@ public class Crawler {
 		 * {"status":0,"result":{"location":{"lng":119.95106201677,"lat":36.788550047135},"precise":0,"confidence":14,"level":"\u533a\u53bf"}}
 		 */
 		JsonElement locJson = new JsonParser().parse(location);
-		double lng = locJson.getAsJsonObject().get("result").getAsJsonObject().get("location").getAsJsonObject().get("lng").getAsDouble();
-		double lat = locJson.getAsJsonObject().get("result").getAsJsonObject().get("location").getAsJsonObject().get("lat").getAsDouble();
+		double lng = locJson.getAsJsonObject().get("result").getAsJsonObject()
+				.get("location").getAsJsonObject().get("lng").getAsDouble();
+		double lat = locJson.getAsJsonObject().get("result").getAsJsonObject()
+				.get("location").getAsJsonObject().get("lat").getAsDouble();
 		
 		ProjectBean p = new ProjectBean(id, status, name, district, addr,
 				company, lng, lat, residentNumTotal, residentNumAvail,
@@ -288,7 +294,7 @@ public class Crawler {
 	 * @throws CrawlException 
 	 */
 	private void updateProject(int id, ProjectStatus st) throws CrawlException {
-		JedisHelper.updateStatus(id, st);
+		JedisHelper.updateProjectStatus(id, st);
 		String ret = Connection.doGet(URL_PRICE + id);
 		if (StringUtil.isBlank(ret)) {
 			throw new CrawlException("HttpGet blank:" + URL_PROJ + id);
@@ -333,7 +339,7 @@ public class Crawler {
 			String dateStr = arrNameStr.substring(arrNameStr.length() - 6, arrNameStr.length() - 1);
 			Date dateWeb = Util.str2date(dateStr);
 			
-			//计算昨天是否有最新报价，如果有说明有成交，如果没有则忽略
+			//计算昨天（也即最新的日期）是否有最新报价，如果有，说明有成交，如果没有则忽略
 			Date dateCur = new Date(); 
 			if (dateCur.getTime() - dateWeb.getTime() < 24 * 60 * 60 * 1000) {
 				
@@ -348,9 +354,13 @@ public class Crawler {
 				float price = Float.valueOf(priceStr);
 				
 				//获取之前记录的成交面积、成交数量
+				float lastTotalSoldSize = 0.0f;
+				int lastTotalSoldNum = 0;
 				ProjectBean lastPrj = JedisHelper.getProject(id);
-				float lastTotalSoldSize = lastPrj.getResidentSizeTotal() - lastPrj.getResidentSizeAvail();
-				int lastTotalSoldNum = lastPrj.getResidentNumTotal() - lastPrj.getResidentNumAvail();
+				if (lastPrj != null) {
+					lastTotalSoldSize = lastPrj.getResidentSizeTotal() - lastPrj.getResidentSizeAvail();
+					lastTotalSoldNum = lastPrj.getResidentNumTotal() - lastPrj.getResidentNumAvail();
+				}
 				
 				//获取截止到昨天23:59的成交面积、成交数量
 				ProjectBean curPrj = this.crawlProject(id, st);
@@ -358,19 +368,24 @@ public class Crawler {
 				int curTotalSoldNum = curPrj.getResidentNumTotal() - curPrj.getResidentNumAvail();
 				
 				//最新成交价=（截止昨日末均价*截止昨日末成交总面积-原均价*原总成交面积）/昨天成交面积
+				float todayAvgPrice = price;
 				DailyMetrics lastMet = JedisHelper.getLatestDailyMetrics(id);
-				float lastTotalAvgPrice = lastMet.getTotalAvgPrice();
-				float todayAvgPrice = (price * curTotalSoldSize - lastTotalAvgPrice * lastTotalSoldSize) / (curTotalSoldSize - lastTotalSoldSize);
+				if (lastMet != null) {
+					float lastTotalAvgPrice = lastMet.getTotalAvgPrice();
+					todayAvgPrice = (price * curTotalSoldSize - lastTotalAvgPrice * lastTotalSoldSize) / (curTotalSoldSize - lastTotalSoldSize);
+				}
 				
-				DailyMetrics m = new DailyMetrics(dateWeb, curTotalSoldSize, curTotalSoldNum, price, curTotalSoldSize - lastTotalSoldSize, curTotalSoldNum - lastTotalSoldNum, todayAvgPrice);
-
+				//终于拿到想要的Metrics了
+				float todaySoldSize = curTotalSoldSize - lastTotalSoldSize;
+				int todaySoldNum = curTotalSoldNum - lastTotalSoldNum;
+				DailyMetrics m = new DailyMetrics(dateWeb, curTotalSoldSize,
+						curTotalSoldNum, price, todaySoldSize, todaySoldNum,
+						todayAvgPrice);
+				
 				//保存DailyMetrics信息和Project信息
 				JedisHelper.addDailyMetrics(id, m);
 				JedisHelper.updateProjectMetrics(id, curPrj.getResidentNumAvail(), curPrj.getResidentSizeAvail());
 			}
-
-		} else {
-			logger.info("updateProject|no news:" + id);
 		}
 
 	}

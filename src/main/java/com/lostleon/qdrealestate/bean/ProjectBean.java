@@ -1,6 +1,7 @@
 package com.lostleon.qdrealestate.bean;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class ProjectBean {
@@ -38,6 +39,9 @@ public class ProjectBean {
 	/* 销售信息 */
 	private int residentNumAvail; //住宅可售套数
 	private float residentSizeAvail; //住宅可售面积
+	
+	/* 最新更新时间 */
+	private Date lastUpdate;
 	
 	/* 包含的“开盘单元” */
 	private List<UnitBean> units = new ArrayList<UnitBean>();

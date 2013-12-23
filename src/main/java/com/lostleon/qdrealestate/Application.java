@@ -5,9 +5,6 @@ import com.lostleon.qdrealestate.crawler.Crawler;
 
 public class Application {
 
-	/**
-	 * @param args
-	 */
 	public static void main(String[] args) {
 		Crawler c = new Crawler();
 		c.init();

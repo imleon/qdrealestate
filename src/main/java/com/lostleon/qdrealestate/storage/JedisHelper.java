@@ -3,6 +3,9 @@ package com.lostleon.qdrealestate.storage;
 import java.util.Date;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.lostleon.qdrealestate.bean.DailyMetrics;
 import com.lostleon.qdrealestate.bean.District;
 import com.lostleon.qdrealestate.bean.ProjectBean;
@@ -40,6 +43,8 @@ import redis.clients.jedis.Jedis;
  */
 public class JedisHelper {
 
+	private final static Logger redislogger = LoggerFactory.getLogger("redis");
+	
 	private final static String REDIS_IP = "127.0.0.1";
 	private final static int REDIS_PORT = 6379;
 	
@@ -60,11 +65,15 @@ public class JedisHelper {
 	
 	public static void updateProjectStatus(int id, ProjectStatus st) {
 		jedis.hset("PROJECT:" + id, "status", st.toString());
+		jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
+		redislogger.info("Project|HSET|updateStatus|" + id + "|" + st);
 	}
 	
 	public static void updateProjectMetrics(int id, int residentNumAvail, float residentSizeAvail) {
 		jedis.hset("PROJECT:" + id, "residentNumAvail", String.valueOf(residentNumAvail));
 		jedis.hset("PROJECT:" + id, "residentSizeAvail", String.valueOf(residentSizeAvail));
+		jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
+		redislogger.info("Project|HSET|updateMetrics|" + id + "|" + residentNumAvail + "|" + residentSizeAvail);
 	}
 	
 	public static void createProject(ProjectBean p) {
@@ -80,6 +89,8 @@ public class JedisHelper {
 		jedis.hset(key, "residentNumAvail", String.valueOf(p.getResidentNumAvail()));
 		jedis.hset(key, "residentSizeTotal", String.valueOf(p.getResidentSizeTotal()));
 		jedis.hset(key, "residentSizeAvail", String.valueOf(p.getResidentSizeAvail()));
+		jedis.hset(key, "lastUpdate", Util.date2str(new Date()));
+		redislogger.info("Project|HSET|create|" + p.getProjectId() + "|" + p.getProjectStatus().toString() + "|" + p.getName());
 	}
 	
 	public static ProjectBean getProject(int id) {
@@ -89,15 +100,15 @@ public class JedisHelper {
 		}
 		ProjectStatus st = ProjectStatus.getStatusByENG(p.get("status"));
 		String name = p.get("name");
-		District district = District.getDistrict(p.get("district"));
+		District district = District.getDistrictByENG(p.get("district"));
 		String addr = p.get("addr");
 		String company = p.get("company");
 		double lng = Double.parseDouble(p.get("lng"));
 		double lat = Double.parseDouble(p.get("lat"));
 		int residentNumTotal = Integer.parseInt(p.get("residentNumTotal"));
 		int residentNumAvail = Integer.parseInt(p.get("residentNumAvail"));
-		float residentSizeTotal = Integer.parseInt(p.get("residentSizeTotal"));
-		float residentSizeAvail = Integer.parseInt(p.get("residentSizeAvail"));
+		float residentSizeTotal = Float.parseFloat(p.get("residentSizeTotal"));
+		float residentSizeAvail = Float.parseFloat(p.get("residentSizeAvail"));
 
 		ProjectBean bean = new ProjectBean(id, st, name, district, addr,
 				company, lng, lat, residentNumTotal, residentNumAvail,
@@ -106,7 +117,10 @@ public class JedisHelper {
 	}
 	
 	public static void addDailyMetrics(int id, DailyMetrics dms) {
-		jedis.rpush("METRICS:" + id, dms.toString());
+		String val = dms.toString();
+		jedis.rpush("METRICS:" + id, val);
+		jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
+		redislogger.info("Metrics|RPUSH|" + id + "|" + val);
 	}
 	
 	public static DailyMetrics getLatestDailyMetrics(int prjId) {

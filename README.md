@@ -1,4 +1,4 @@
-qdrealestate
+QDRealEstate
 ============
 
 RealEstate of Qingdao
