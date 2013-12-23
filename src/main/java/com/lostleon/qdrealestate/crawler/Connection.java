@@ -26,57 +26,62 @@ import org.slf4j.LoggerFactory;
 
 public class Connection {
 
-	private final static Logger logger = LoggerFactory.getLogger(Connection.class);
-	
-	private final static String PROTOCOL = "http";
-	
-	private final static int PORT = 80;
-	
-	private final static String ENCODEING = "GBK";
-	
-	private final static String USER_AGENT = "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13";
+    private final static Logger logger = LoggerFactory
+            .getLogger(Connection.class);
 
-	private final static String REFERER = "http://http://www.qdfd.com.cn";
-	
-	public static HttpClient httpclient;
-	
-	public static void init() {
-		SchemeRegistry schemeRegistry = new SchemeRegistry();
-		schemeRegistry.register(new Scheme(PROTOCOL, PORT, PlainSocketFactory.getSocketFactory()));
-		ClientConnectionManager cm = new PoolingClientConnectionManager(schemeRegistry);
-		httpclient = new DefaultHttpClient(cm);
-	}
-	
-	public static String doGet(String url) {
-		StringBuilder ret = new StringBuilder();
-		HttpGet hg = new HttpGet(url);
-		hg.setHeader("Referer", REFERER);
-		
+    private final static String PROTOCOL = "http";
+
+    private final static int PORT = 80;
+
+    private final static String ENCODEING = "GBK";
+
+    private final static String USER_AGENT = "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13";
+
+    private final static String REFERER = "http://http://www.qdfd.com.cn";
+
+    public static HttpClient httpclient;
+
+    public static void init() {
+        SchemeRegistry schemeRegistry = new SchemeRegistry();
+        schemeRegistry.register(new Scheme(PROTOCOL, PORT, PlainSocketFactory
+                .getSocketFactory()));
+        ClientConnectionManager cm = new PoolingClientConnectionManager(
+                schemeRegistry);
+        httpclient = new DefaultHttpClient(cm);
+    }
+
+    public static String doGet(String url) {
+        StringBuilder ret = new StringBuilder();
+        HttpGet hg = new HttpGet(url);
+        hg.setHeader("Referer", REFERER);
+
         HttpContext HTTP_CONTEXT = new BasicHttpContext();
         HTTP_CONTEXT.setAttribute(CoreProtocolPNames.USER_AGENT, USER_AGENT);
-        httpclient.getParams().setParameter(ClientPNames.COOKIE_POLICY, CookiePolicy.BROWSER_COMPATIBILITY);
+        httpclient.getParams().setParameter(ClientPNames.COOKIE_POLICY,
+                CookiePolicy.BROWSER_COMPATIBILITY);
 
         String line = "";
-		try {
-			HttpResponse res = httpclient.execute(hg, HTTP_CONTEXT);
-			HttpEntity ent = res.getEntity();
-			BufferedReader br = new BufferedReader(new InputStreamReader(ent.getContent(), ENCODEING));
-			while ((line = br.readLine()) != null) {
-				ret.append(line);
-			}
-			EntityUtils.consume(ent);
-		} catch (ClientProtocolException e) {
-			logger.error("HttpGet Exception", e);
-		} catch (IllegalStateException e) {
-			logger.error("HttpGet Exception", e);
-		} catch (IOException e) {
-			logger.error("HttpGet Exception", e);
-		}
-		return ret.toString();
-	}
-	
-	public static void close() {
-		httpclient.getConnectionManager().shutdown();
-	}
-	
+        try {
+            HttpResponse res = httpclient.execute(hg, HTTP_CONTEXT);
+            HttpEntity ent = res.getEntity();
+            BufferedReader br = new BufferedReader(new InputStreamReader(
+                    ent.getContent(), ENCODEING));
+            while ((line = br.readLine()) != null) {
+                ret.append(line);
+            }
+            EntityUtils.consume(ent);
+        } catch (ClientProtocolException e) {
+            logger.error("HttpGet Exception", e);
+        } catch (IllegalStateException e) {
+            logger.error("HttpGet Exception", e);
+        } catch (IOException e) {
+            logger.error("HttpGet Exception", e);
+        }
+        return ret.toString();
+    }
+
+    public static void close() {
+        httpclient.getConnectionManager().shutdown();
+    }
+
 }
