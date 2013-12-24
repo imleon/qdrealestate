@@ -123,6 +123,11 @@ public class ProjectBean {
     public float getResidentSizeAvail() {
         return this.residentSizeAvail;
     }
+    
+    public void setResidentSize(float total, float avail) {
+        this.residentSizeTotal = total;
+        this.residentSizeAvail = avail;
+    }
 
     public void setLatLng(double lat, double lng) {
         this.lat = lat;
@@ -141,6 +146,26 @@ public class ProjectBean {
 
     public void addMetrics(DailyMetrics d) {
         this.metrics.add(d);
+    }
+    
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(projectId).append("|")
+        .append(status).append("|")
+        .append(district).append("\t|")
+        .append(lng).append("|")
+        .append(lat).append("|")
+        .append(residentNumTotal).append("|")
+        .append(residentNumAvail).append("|")
+        .append(residentSizeTotal).append("|")
+        .append(residentSizeAvail).append("|")
+        .append(lastUpdate).append("|")
+        .append(name).append("|")
+        .append(addr).append("|")
+        .append(company);
+        return sb.toString();
+        
     }
 
 }

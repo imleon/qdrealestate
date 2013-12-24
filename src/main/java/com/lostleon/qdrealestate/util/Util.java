@@ -33,7 +33,7 @@ public class Util {
      */
     public static Date str2dateComplex(String str) {
         Date d = null;
-        DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        DateFormat format = new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss");
         try {
             d = format.parse(str);
         } catch (ParseException e) {

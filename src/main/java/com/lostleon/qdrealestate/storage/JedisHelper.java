@@ -1,6 +1,7 @@
 package com.lostleon.qdrealestate.storage;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import com.lostleon.qdrealestate.bean.DailyMetrics;
 import com.lostleon.qdrealestate.bean.District;
 import com.lostleon.qdrealestate.bean.ProjectBean;
 import com.lostleon.qdrealestate.bean.ProjectStatus;
+import com.lostleon.qdrealestate.bean.UnitBean;
 import com.lostleon.qdrealestate.util.Util;
 
 import redis.clients.jedis.Jedis;
@@ -36,8 +38,11 @@ import redis.clients.jedis.Jedis;
  *    element3    "date|totalSoldSize|totalSoldNum|totalAvgPrice|todaySoldSize|todaySoldNum|todayAvgPrice"
  *    
  * 3. list        用来存储Unit
+ *    key         "UNIT:1428"
+ *    element1    "unitId|totalNum|availNum|totalSize|availSize|isResident"
+ *    element2    "unitId|totalNum|availNum|totalSize|availSize|isResident"
+ *    element3    "unitId|totalNum|availNum|totalSize|availSize|isResident"
  *    
- * 
  * @author lostleon@gmail.com
  *
  */
@@ -78,6 +83,17 @@ public class JedisHelper {
         jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
         redislogger.info("Project|HSET|updateMetrics|" + id + "|"
                 + residentNumAvail + "|" + residentSizeAvail);
+    }
+    
+    public static void updateProjectMetrics(int id, float residentSizeTotal,
+            float residentSizeAvail) {
+        jedis.hset("PROJECT:" + id, "residentSizeTotal",
+                String.valueOf(residentSizeTotal));
+        jedis.hset("PROJECT:" + id, "residentSizeAvail",
+                String.valueOf(residentSizeAvail));
+        jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
+        redislogger.info("Project|HSET|updateMetrics|" + id + "|"
+                + residentSizeTotal + "|" + residentSizeAvail);
     }
 
     public static void createProject(ProjectBean p) {
@@ -131,13 +147,21 @@ public class JedisHelper {
         jedis.hset("PROJECT:" + id, "lastUpdate", Util.date2str(new Date()));
         redislogger.info("Metrics|RPUSH|" + id + "|" + val);
     }
+    
+    public static void addUnits(int id, List<UnitBean> ubs) {
+        for (UnitBean ub : ubs) {
+            String val = ub.toString();
+            jedis.rpush("UNIT:" + id, val);
+            redislogger.info("Unit|RPUSH|" + id + "|" + val);
+        }
+    }
 
     public static DailyMetrics getLatestDailyMetrics(int prjId) {
         String m = jedis.lindex("METRICS:" + prjId, -1);
         if (m == null) {
             return null;
         }
-        String[] elms = m.split("|");
+        String[] elms = m.split("\\|");
         if (elms.length != 7) { // 1个日期+3个总的+3个当天的
             return null;
         }
@@ -156,5 +180,5 @@ public class JedisHelper {
                 totalAvgPrice, todaySoldSize, todaySoldNum, todayAvgPrice);
         return dms;
     }
-
+    
 }

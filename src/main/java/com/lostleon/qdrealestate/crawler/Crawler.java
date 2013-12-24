@@ -22,6 +22,7 @@ import com.lostleon.qdrealestate.bean.DailyMetrics;
 import com.lostleon.qdrealestate.bean.District;
 import com.lostleon.qdrealestate.bean.ProjectBean;
 import com.lostleon.qdrealestate.bean.ProjectStatus;
+import com.lostleon.qdrealestate.bean.UnitBean;
 import com.lostleon.qdrealestate.map.GeoHelper;
 import com.lostleon.qdrealestate.storage.JedisHelper;
 import com.lostleon.qdrealestate.util.Util;
@@ -235,7 +236,6 @@ public class Crawler {
 		
 		int residentNumTotal = Integer.valueOf(ParseHelper.trimComma(table2s.get(4).text()));
 		int residentNumAvail = Integer.valueOf(ParseHelper.trimComma(table2s.get(8).text()));
-		//TODO should be accurate
 		float residentSizeTotal = Float.valueOf(ParseHelper.trimCommaAndReserveFirst(table2s.get(5).text()));
 		float residentSizeAvail = Float.valueOf(ParseHelper.trimCommaAndReserveFirst(table2s.get(9).text()));
 		
@@ -256,16 +256,27 @@ public class Crawler {
 		/*
 		 * {"status":0,"result":{"location":{"lng":119.95106201677,"lat":36.788550047135},"precise":0,"confidence":14,"level":"\u533a\u53bf"}}
 		 */
-		JsonElement locJson = new JsonParser().parse(location);
-		double lng = locJson.getAsJsonObject().get("result").getAsJsonObject()
-				.get("location").getAsJsonObject().get("lng").getAsDouble();
-		double lat = locJson.getAsJsonObject().get("result").getAsJsonObject()
-				.get("location").getAsJsonObject().get("lat").getAsDouble();
-		
-		ProjectBean p = new ProjectBean(id, status, name, district, addr,
-				company, lng, lat, residentNumTotal, residentNumAvail,
-				residentSizeTotal, residentSizeAvail);
-		return p;
+        double lng = 0.0d;
+        double lat = 0.0d;
+        try {
+            JsonElement locJson = new JsonParser().parse(location);
+            JsonElement result = locJson.getAsJsonObject().get("result");
+            if (result.isJsonObject()) {
+                lng = result.getAsJsonObject().get("location")
+                        .getAsJsonObject().get("lng").getAsDouble();
+                lat = result.getAsJsonObject().get("location")
+                        .getAsJsonObject().get("lat").getAsDouble();
+            } else {
+                logger.error("parse Geo Json " + id + " filed:" + location);
+            }
+        } catch (IllegalStateException e) {
+            logger.error("parse Geo Json filed: " + location, e);
+        }
+
+        ProjectBean p = new ProjectBean(id, status, name, district, addr,
+                company, lng, lat, residentNumTotal, residentNumAvail,
+                residentSizeTotal, residentSizeAvail);
+        return p;
 
 	}
 	
@@ -275,6 +286,8 @@ public class Crawler {
 	 * @param st
 	 */
 	private void createProject(int id, ProjectStatus st) {
+	    
+	    // Project页面
 		ProjectBean richPrj = null;
 		try {
 			richPrj = this.crawlProject(id, st);
@@ -285,6 +298,16 @@ public class Crawler {
 		if (st.equals(ProjectStatus.SOLDOUT)) {
 			//TODO 如果是售完项目，则把最终的价格保存起来
 		}
+		
+		// UnitBean页面
+		try {
+            List<UnitBean> ubs = this.crawlUnit(id);
+            UnitBean.adjustUnitBeans(richPrj, ubs);
+            JedisHelper.updateProjectMetrics(id, richPrj.getResidentSizeTotal(), richPrj.getResidentSizeAvail());
+            JedisHelper.addUnits(id, ubs);
+        } catch (CrawlException e) {
+            logger.error("createProject|CrawlUnitBeanException|" + id, e);
+        }
 	}
 	
 	/**
@@ -388,5 +411,67 @@ public class Crawler {
 			}
 		}
 
+	}
+	
+	/**
+	 * 爬取某个Project的所有Unit，并标注其属性是否为住宅
+	 * @param prjId
+	 * @return
+	 * @throws CrawlException 
+	 */
+	private List<UnitBean> crawlUnit(int prjId) throws CrawlException {
+	    String ret = Connection.doGet(URL_UNIT + prjId);
+        if (StringUtil.isBlank(ret)) {
+            throw new CrawlException("HttpGet blank:" + URL_UNIT + prjId);
+        }
+        
+        Document doc = Jsoup.parse(ret);
+        Elements itemLines = doc.select("tr[id^=itemLine]"); //所有id以itemLine开头的元素
+        /*
+        <tr align="center" id="itemLine1" onclick="javascript:SetSelect(this,1,'','','青房注字(崂)2007第030号','447','417');">
+            <td class=table2><div align="center">2007000172</div></td>
+            <td class=table2><a id="codelink1" href="building.asp?ProjectID=300&projectName=&PreSell_ID=447&Start_ID=417"target="SBList" onclick="javascript :SetInit('','','青房注字(崂)2007第030号','447','417')"><span style="font-weight:bold"><div align="center">青房注字(崂)2007第030号</span></div></a></td>
+            <td class=table2><div align="center">2007-11-28</div></td>
+            <td class=table2><div align="center">&nbsp;</div></td>
+            <td class=table2><div align="center">&nbsp;</div></td>
+            <td class=table2><div align="center">669套</div></td>
+            <td class=table2><div align="center">82436.38 m<SUP>2</SUP></div></td>
+            <td class=table2><div align="center">25套</div></td>
+            <td class=table2><div align="center">3356.19 m<SUP>2</SUP></div></td>
+            <td class=table2><div align="center">644套</td>
+            <td class=table2><div align="center">79080.19 m<SUP>2</SUP></div></td>
+        </TR>
+        <tr align="center" id="itemLine2" onclick="javascript:SetSelect(this,2,'','','青房注字(崂)2007第031号','448','418');">
+            <td class=table4><div align="center">2007172031</div></td>
+            <td class=table4><a id="codelink2" href="building.asp?ProjectID=300&projectName=&PreSell_ID=448&Start_ID=418"target="SBList" onclick="javascript :SetInit('','','青房注字(崂)2007第031号','448','418')"><span style="font-weight:bold"><div align="center">青房注字(崂)2007第031号</span></div></a></td>
+            <td class=table4><div align="center">2007-11-28</div></td>
+            <td class=table4><div align="center">&nbsp;</div></td>
+            <td class=table4><div align="center">&nbsp;</div></td>
+            <td class=table4><div align="center">374套</div></td>
+            <td class=table4><div align="center">51275.89 m<SUP>2</SUP></div></td>
+            <td class=table4><div align="center">16套</div></td>
+            <td class=table4><div align="center">2170.14 m<SUP>2</SUP></div></td>
+            <td class=table4><div align="center">358套</td>
+            <td class=table4><div align="center">49105.75 m<SUP>2</SUP></div></td>
+        </TR>
+         */
+        List<UnitBean> ubs = new ArrayList<UnitBean>(itemLines.size());
+        for (Element e : itemLines) {
+            Elements table2s = e.select("td[class^=table]");
+            String strId = table2s.get(0).text();
+            String strTotalNum = table2s.get(5).text().trim();
+            String strAvailNum = table2s.get(7).text().trim();
+            String strTotalSize = table2s.get(6).text().trim();
+            String strAvailSize = table2s.get(8).text().trim();
+            
+            long itemId = Long.parseLong(strId);
+            int totalNum = Integer.parseInt(strTotalNum.substring(0, strTotalNum.length() - 1));
+            int availNum = Integer.parseInt(strAvailNum.substring(0, strAvailNum.length() - 1));
+            float totalSize = Float.parseFloat(strTotalSize.substring(0, strTotalSize.length() - 2));
+            float availSize = Float.parseFloat(strAvailSize.substring(0, strAvailSize.length() - 2));
+            UnitBean ub = new UnitBean(itemId, totalNum, availNum, totalSize, availSize, false, false);
+            ubs.add(ub);
+        }
+        return ubs;
 	}
 }
