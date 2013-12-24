@@ -1,5 +1,6 @@
 package com.lostleon.qdrealestate.storage;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -179,6 +180,35 @@ public class JedisHelper {
         DailyMetrics dms = new DailyMetrics(d, totalSoldSize, totalSoldNum,
                 totalAvgPrice, todaySoldSize, todaySoldNum, todayAvgPrice);
         return dms;
+    }
+    
+    
+    public static List<UnitBean> getResidentUnitBeans(int prjId) {
+        List<UnitBean> ret = new ArrayList<UnitBean>();
+        
+        List<String> ubs = jedis.lrange("UNIT:" + prjId, 0, -1);
+        if (ubs == null || ubs.size() == 0) {
+            return null;
+        }
+        for (String ub : ubs) {
+            String[] elms = ub.split("\\|");
+            if (elms.length != 7) { // 1个id+4个数据+2个bool
+                return null;
+            }
+            boolean isResident = Boolean.parseBoolean(elms[5]);
+            if (isResident) {
+                long ubId = Long.parseLong(elms[0]);
+                int totalNum = Integer.parseInt(elms[1]);
+                int availNum = Integer.parseInt(elms[2]);
+                float totalSize = Float.parseFloat(elms[3]);
+                float availSize = Float.parseFloat(elms[4]);
+                boolean isFake = Boolean.parseBoolean(elms[6]);
+                UnitBean ubObj = new UnitBean(ubId, totalNum, availNum,
+                        totalSize, availSize, isResident, isFake);
+                ret.add(ubObj);
+            }
+        }
+        return ret;
     }
     
 }
