@@ -62,8 +62,7 @@ public class Crawler {
 		int countPage = 0;
 		int countRecord = 0;
 		
-//		for (int i = 1; i <= listPageNum; i ++) {
-		for (int i = 1; i <= 2; i ++) {
+		for (int i = 1; i <= listPageNum; i ++) {
 			
 			String ret = Connection.doGet(URL_LIST + i);
 			if (StringUtil.isBlank(ret)) {
@@ -261,7 +260,7 @@ public class Crawler {
         try {
             JsonElement locJson = new JsonParser().parse(location);
             JsonElement result = locJson.getAsJsonObject().get("result");
-            if (result.isJsonObject()) {
+            if (result != null && result.isJsonObject()) {
                 lng = result.getAsJsonObject().get("location")
                         .getAsJsonObject().get("lng").getAsDouble();
                 lat = result.getAsJsonObject().get("location")
@@ -269,7 +268,7 @@ public class Crawler {
             } else {
                 logger.error("parse Geo Json " + id + " filed:" + location);
             }
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             logger.error("parse Geo Json filed: " + location, e);
         }
 
@@ -365,7 +364,13 @@ public class Crawler {
 			//计算昨天（也即最新的日期）是否有最新报价，如果有，说明有成交，如果没有则忽略
 			Date dateCur = new Date(); 
 			if (dateCur.getTime() - dateWeb.getTime() < 24 * 60 * 60 * 1000) {
-				
+			    
+			    //查询Redis，看是否已经存储过昨天的报价了，如果存储了，则结束
+			    DailyMetrics lastMet = JedisHelper.getLatestDailyMetrics(id);
+			    if ((lastMet != null) && (lastMet.getDate().getTime() == dateWeb.getTime())) {
+			        return ;
+			    }
+			    
 				//获取截止到昨天23:59的均价
 				Pattern patternValue=Pattern.compile("arrValue\\(\\d+,1\\)=\"\\d+\\.?\\d+?\"");    
 				Matcher matcherValue=patternValue.matcher(data);
@@ -392,7 +397,6 @@ public class Crawler {
 				
 				//最新成交价=（截止昨日末均价*截止昨日末成交总面积-原均价*原总成交面积）/昨天成交面积
 				float todayAvgPrice = price;
-				DailyMetrics lastMet = JedisHelper.getLatestDailyMetrics(id);
 				if (lastMet != null) {
 					float lastTotalAvgPrice = lastMet.getTotalAvgPrice();
 					todayAvgPrice = (price * curTotalSoldSize - lastTotalAvgPrice * lastTotalSoldSize) / (curTotalSoldSize - lastTotalSoldSize);

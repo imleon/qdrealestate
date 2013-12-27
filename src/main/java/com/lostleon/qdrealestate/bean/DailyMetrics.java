@@ -50,6 +50,10 @@ public class DailyMetrics {
     public float getTotalAvgPrice() {
         return this.totalAvgPrice;
     }
+    
+    public Date getDate() {
+        return this.date;
+    }
 
     @Override
     public String toString() {
