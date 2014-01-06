@@ -51,6 +51,10 @@ public class DailyMetrics {
         return this.totalAvgPrice;
     }
     
+    public float getTodayAvgPrice() {
+        return this.todayAvgPrice;
+    }
+    
     public Date getDate() {
         return this.date;
     }
