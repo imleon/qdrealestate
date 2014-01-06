@@ -4,7 +4,9 @@
 	<groupId>com.lostleon</groupId>
 	<artifactId>QDRealEstaty</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -38,6 +40,20 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/java</directory>
+				<includes>
+					<include>**/*.java</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>conf</directory>
+				<includes>
+					<include>log4j.xml</include>
+				</includes>
+			</resource>
+		</resources>
 		<pluginManagement>
 			<plugins>
 				<plugin>
@@ -47,6 +63,14 @@
 						<source>1.6</source>
 						<target>1.6</target>
 						<compilerArgument></compilerArgument>
+					</configuration>
+				</plugin>
+				<plugin>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<configuration>
+						<descriptorRefs>
+							<descriptorRef>jar-with-dependencies</descriptorRef>
+						</descriptorRefs>
 					</configuration>
 				</plugin>
 			</plugins>
