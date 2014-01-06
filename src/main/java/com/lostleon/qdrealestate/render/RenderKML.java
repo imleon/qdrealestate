@@ -12,6 +12,10 @@ import com.lostleon.qdrealestate.storage.JedisHelper;
 
 public class RenderKML {
     
+    private static final float PRICE_ADDON = 3000f;
+    private static final float PRICE_HIGH = 15000f;
+
+    
     private static final String KML_PREFIX = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://earth.google.com/kml/2.0\"><Document><name>Qingdao</name>";
     private static final String KML_POSTFIX = "</Document></kml>";
     public static void main(String[] args) {
@@ -52,8 +56,20 @@ public class RenderKML {
         Set<String> projects = j.keys("PROJECT:*");
         for (String p : projects) {
             ProjectBean pb = JedisHelper.getProject(Integer.valueOf(p.substring(8)));
-            System.out.println("var point = new BMap.Point(" + pb.getLng() + ", " + pb.getLat() + ");addMarker(point);");
-//            System.out.println("<Placemark><Point><coordinates>" + pb.getLng() + "," + pb.getLat() + ",100.0000</coordinates></Point></Placemark>");
+            DailyMetrics dm = JedisHelper.getLatestDailyMetrics(pb.getProjectId());
+            
+            if (dm != null) {
+                float todayAvgPrice = dm.getTodayAvgPrice();
+                String price = String.valueOf((float) Math.round(todayAvgPrice / 100) / 100);
+                String color = null;
+                if (todayAvgPrice > PRICE_HIGH - PRICE_ADDON) {
+                    color = "FF";
+                } else {
+                    color = Integer.toHexString(Math.round((todayAvgPrice + PRICE_ADDON) * 256 / (PRICE_HIGH + PRICE_ADDON) + 0.5f));
+                }                
+                System.out.println("{title:\"" + pb.getName() + "\",lat:\"" + pb.getLat() +"\",lng:\"" + pb.getLng() + "\",color:\"" + color + "\",price:\"" + price + "\"},");
+            } 
+            
         }
         
 //        
